@@ -8,6 +8,7 @@
   - [ЛР №3: Робота з пов'язаними даними](labs/lab3.md)
   - [ЛР №4: Аутентифікація та JWT](labs/lab4.md)
   - [ЛР №5: Просунуті запити та Пагінація/Ролі](labs/lab5.md)
+  - [ЛР №6: Production Readiness](labs/lab6.md)
 
 - **Додатково**
   - [Контрольні питання](control_questions.md)
