@@ -1,34 +1,38 @@
 # Лабораторна робота №4: Аутентифікація та JWT
 
 ## 1. Мета роботи
-Опанувати механізми аутентифікації та авторизації користувачів у веб-додатках на базі Node.js. Навчитися хешувати паролі, генерувати та валідувати JSON Web Tokens (JWT), створювати захищені (private) маршрути та реалізовувати логіку перевірки прав власності на ресурси (користувач може редагувати лише власні записи).
+Опанувати механізми аутентифікації та авторизації користувачів у веб-додатках. Навчитися хешувати паролі, генерувати та валідувати JSON Web Tokens (JWT), створювати захищені маршрути та реалізовувати логіку перевірки прав власності на ресурси.
 
 ## 2. Теоретичні відомості
-- **Аутентифікація** — процес підтвердження того, ким є користувач (наприклад, за допомогою логіна та пароля).
-- **Авторизація** — процес перевірки прав доступу користувача до певного ресурсу або дії.
-- **JWT (JSON Web Token)** — відкритий стандарт (RFC 7519) для створення токенів доступу. Складається з трьох частин: Header, Payload (корисне навантаження, наприклад ID користувача), та Signature (підпис).
-- **Хешування паролів** — однобічне математичне перетворення пароля у рядок фіксованої довжини (хеш). Для безпеки використовується алгоритм `bcrypt`, який також додає унікальну "сіль" (salt) до кожного пароля перед хешуванням.
-- **Auth Middleware** — функція проміжної обробки в Express, яка перевіряє наявність та валідність токена в HTTP-заголовку (`Authorization: Bearer <token>`).
+- **Аутентифікація** — підтвердження того, ким є користувач (логін + пароль).
+- **Авторизація** — перевірка прав доступу до певного ресурсу або дії.
+- **JWT (JSON Web Token)** — відкритий стандарт (RFC 7519) для токенів доступу. Складається з: Header, Payload (userId, role), Signature.
+- **Хешування паролів** — однобічне перетворення пароля за алгоритмом `bcrypt`. Додає унікальну "сіль" (salt) для захисту від rainbow table атак.
+- **Auth Middleware** — перевіряє наявність та валідність токена в HTTP-заголовку `Authorization: Bearer <token>`.
+
+> Продовжуйте у тому самому стеку, який ви обрали у ЛР №1.
+
+<!-- tabs:start -->
+
+#### **Node.js (Express)**
 
 ## 3. Завдання
-1. Створити модель `User` у базі даних (вашій ORM) з полями `id`, `email`, `password`, `role`.
-2. Оновити існуючі моделі `Place` та `Review`: додати зв'язок з моделлю `User` (`createdBy` для місця, `userId` для відгуку).
-3. Реалізувати ендпоінт реєстрації (`POST /api/auth/register`). Пароль перед збереженням у БД необхідно захешувати за допомогою `bcrypt`.
-4. Реалізувати ендпоінт логіну (`POST /api/auth/login`). При правильному введенні пароля (перевірка через `bcrypt.compare`) повинен генеруватись JWT токен (через `jsonwebtoken`) та повертатись клієнту.
-5. Написати `authMiddleware`, який буде перевіряти наявність валідного токена та додавати розшифровані дані (наприклад, `req.user`) до об'єкту запиту.
-6. Захистити маршрути створення, оновлення та видалення місць (`Place`) і створення відгуків (`Review`), додавши до них `authMiddleware`.
-7. Додати логіку авторизації: коли користувач створює місце чи відгук, у БД автоматично записується його ID (з токена `req.user`). При спробі оновити або видалити місце перевіряти, чи належить воно поточному користувачу. Якщо ні — повертати помилку `403 Forbidden`.
+
+1. Встановити залежності: `npm install bcryptjs jsonwebtoken`.
+2. Створити модель `User` з полями `id`, `email`, `password`, `role`.
+3. Оновити `Place` та `Review`: додати `createdBy` / `userId` (FK → User).
+4. Реалізувати `POST /api/auth/register` (хешування пароля через `bcryptjs`).
+5. Реалізувати `POST /api/auth/login` (порівняння через `bcrypt.compare`, генерація JWT).
+6. Написати `authMiddleware`, який декодує токен та кладе `req.user` у запит.
+7. Захистити маршрути `POST/PUT/DELETE /api/places` та `POST /api/places/:placeId/reviews`.
+8. Додати перевірку власності: при PUT/DELETE перевіряти `place.createdBy === req.user.id`.
 
 ## 4. Вимоги до реалізації
 
-### 4.1. Доменна модель `User` та оновлення інших
-- **User:**
-  - `id` (Primary Key)
-  - `email` (String, unique, обов'язкове)
-  - `password` (String/Hash, обов'язкове)
-  - `role` (String, за замовчуванням 'user')
-- **Place:** додати поле `createdBy` (Foreign Key -> User)
-- **Review:** додати поле `userId` (Foreign Key -> User)
+### 4.1. Доменні моделі
+- **User:** `id`, `email` (unique), `password` (hash), `role` (default: `'user'`)
+- **Place:** додати `createdBy` (FK → User)
+- **Review:** додати `userId` (FK → User)
 
 ### 4.2. Файлова структура (доповнення)
 ```
@@ -43,41 +47,352 @@
       auth.middleware.js
   /models
       user.model.js
-...
 ```
 
-### 4.3. API Endpoints
-- `POST /api/auth/register` — реєстрація.
-  - *Body:* `email`, `password`.
-- `POST /api/auth/login` — вхід.
-  - *Body:* `email`, `password`.
-  - *Response:* `{"success": true, "token": "eyJh..."}`
+### 4.3. Ключові фрагменти коду
 
-Захищені маршрути (Header `Authorization: Bearer <token>`):
-- `POST /api/places`
-- `PUT /api/places/:id`
-- `DELETE /api/places/:id`
+**`src/middlewares/auth.middleware.js`**
+```js
+const jwt = require('jsonwebtoken');
+
+module.exports = (req, res, next) => {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    return res.status(401).json({ success: false, error: 'No token' });
+  }
+  try {
+    req.user = jwt.verify(header.split(' ')[1], process.env.JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ success: false, error: 'Invalid token' });
+  }
+};
+```
+
+**`src/services/auth.service.js`**
+```js
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/user.model');
+
+async function register(email, password) {
+  const hash = await bcrypt.hash(password, 10);
+  return User.create({ email, password: hash });
+}
+
+async function login(email, password) {
+  const user = await User.findOne({ where: { email } });
+  if (!user || !(await bcrypt.compare(password, user.password))) {
+    throw Object.assign(new Error('Invalid credentials'), { status: 401 });
+  }
+  const token = jwt.sign(
+    { id: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  return { user: { id: user.id, email: user.email, role: user.role }, token };
+}
+
+module.exports = { register, login };
+```
+
+### 4.4. API Endpoints
+- `POST /api/auth/register` — Body: `{ email, password }`
+- `POST /api/auth/login` — Response: `{ success: true, data: { user, token } }`
+
+Захищені (Header `Authorization: Bearer <token>`):
+- `POST /api/places`, `PUT /api/places/:id`, `DELETE /api/places/:id`
 - `POST /api/places/:placeId/reviews`
 
-*Приклад відповіді на успішний логін:*
-```json
+## 5. Очікуваний результат
+1. `POST /api/auth/register` — пароль зберігається як хеш.
+2. Неправильний логін → `401 Unauthorized`.
+3. Правильний логін → JWT у відповіді.
+4. `POST /api/places` без токена → `401 Unauthorized`.
+5. При створенні місця — `createdBy` автоматично заповнюється з токена.
+6. PUT/DELETE чужого місця → `403 Forbidden`.
+
+#### **Python (FastAPI)**
+
+## 3. Завдання
+
+1. Встановити залежності: `pip install python-jose[cryptography] passlib[bcrypt]`.
+2. Створити SQLAlchemy-модель `User` та Pydantic-схеми.
+3. Оновити `Place` та `Review`: додати `owner_id` / `user_id` (FK → User).
+4. Реалізувати `POST /api/auth/register` та `POST /api/auth/login`.
+5. Реалізувати `get_current_user` dependency, яка декодує JWT.
+6. Захистити маршрути через `Depends(get_current_user)`.
+7. Перевіряти власність при PUT/DELETE.
+
+## 4. Вимоги до реалізації
+
+### 4.1. Доменні моделі
+- **User:** `id`, `email` (unique), `password` (hash), `role` (default: `'user'`)
+- **Place:** додати `owner_id` (FK → User)
+- **Review:** додати `user_id` (FK → User)
+
+### 4.2. Файлова структура (доповнення)
+```
+/src
+  /models
+      user_model.py
+  /schemas
+      user_schema.py
+      auth_schema.py
+  /services
+      auth_service.py
+  /routers
+      auth_router.py
+  /dependencies
+      auth.py          # get_current_user
+```
+
+### 4.3. Ключові фрагменти коду
+
+**`src/services/auth_service.py`**
+```python
+from passlib.context import CryptContext
+from jose import jwt, JWTError
+from datetime import datetime, timedelta
+import os
+
+pwd_context = CryptContext(schemes=["bcrypt"])
+SECRET_KEY = os.getenv("JWT_SECRET", "changeme")
+ALGORITHM = "HS256"
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    return pwd_context.verify(plain, hashed)
+
+def create_token(user_id: str, role: str) -> str:
+    payload = {
+        "sub": user_id,
+        "role": role,
+        "exp": datetime.utcnow() + timedelta(hours=24)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def decode_token(token: str) -> dict:
+    try:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise ValueError("Invalid token")
+```
+
+**`src/dependencies/auth.py`**
+```python
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from src.db.database import get_db
+from src.models.user_model import User
+from src.services.auth_service import decode_token
+
+bearer = HTTPBearer()
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(bearer),
+    db: AsyncSession = Depends(get_db)
+) -> User:
+    try:
+        payload = decode_token(credentials.credentials)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = await db.get(User, payload["sub"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+```
+
+**Захист маршруту та перевірка власності**
+```python
+from src.dependencies.auth import get_current_user
+
+@router.post("/", response_model=PlaceResponse, status_code=201)
+async def create_place(
+    data: PlaceCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return await place_service.create(db, data, owner_id=current_user.id)
+
+@router.delete("/{place_id}", status_code=204)
+async def delete_place(
+    place_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    place = await place_service.get_by_id(db, place_id)
+    if not place:
+        raise HTTPException(status_code=404, detail="Place not found")
+    if place.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await place_service.delete(db, place_id)
+```
+
+### 4.4. API Endpoints
+- `POST /api/auth/register` — Body: `{ email, password }`
+- `POST /api/auth/login` — Response: `{ user: {...}, token: "eyJ..." }`
+
+## 5. Очікуваний результат
+1. `POST /api/auth/register` — пароль зберігається як bcrypt-хеш.
+2. Неправильний логін → `401 Unauthorized`.
+3. Правильний логін → JWT.
+4. `POST /api/places` без токена → `403 Forbidden` (HTTPBearer вимагає токен).
+5. При створенні місця — `owner_id` заповнюється автоматично.
+6. PUT/DELETE чужого місця → `403 Forbidden`.
+
+#### **.NET (ASP.NET Core)**
+
+## 3. Завдання
+
+1. Встановити пакети: `dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer` та `dotnet add package BCrypt.Net-Next`.
+2. Створити модель `User` та додати `DbSet<User>` до `AppDbContext`.
+3. Оновити `Place` та `Review`: додати `OwnerId` / `UserId` (FK → User).
+4. Реалізувати `AuthController` з `Register` та `Login` endpoints.
+5. Налаштувати JWT Bearer authentication у `Program.cs`.
+6. Захистити endpoints атрибутом `[Authorize]`.
+7. Перевіряти власність при PUT/DELETE через `User.FindFirstValue`.
+
+## 4. Вимоги до реалізації
+
+### 4.1. Доменні моделі
+- **User:** `Id` (Guid), `Email` (unique), `Password` (hash), `Role` (default: `"user"`)
+- **Place:** додати `OwnerId` (Guid, FK → User)
+- **Review:** додати `UserId` (Guid, FK → User)
+
+### 4.2. Файлова структура (доповнення)
+```
+/Models
+    User.cs
+/Controllers
+    AuthController.cs
+/Services
+    AuthService.cs
+```
+
+### 4.3. Ключові фрагменти коду
+
+**`Models/User.cs`**
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+namespace PlacesApi.Models;
+
+public class User
 {
-  "success": true,
-  "data": {
-    "user": {
-      "id": "1",
-      "email": "student@example.com",
-      "role": "user"
-    },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    [Required, EmailAddress]
+    public string Email { get; set; } = string.Empty;
+
+    [Required]
+    public string Password { get; set; } = string.Empty;
+
+    public string Role { get; set; } = "user";
 }
 ```
 
+**`Services/AuthService.cs`**
+```csharp
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+
+namespace PlacesApi.Services;
+
+public class AuthService(IConfiguration config)
+{
+    public string HashPassword(string password) =>
+        BCrypt.Net.BCrypt.HashPassword(password);
+
+    public bool VerifyPassword(string password, string hash) =>
+        BCrypt.Net.BCrypt.Verify(password, hash);
+
+    public string CreateToken(Guid userId, string role)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["Jwt:Secret"]!));
+        var token = new JwtSecurityToken(
+            claims: [
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+                new Claim(ClaimTypes.Role, role)
+            ],
+            expires: DateTime.UtcNow.AddHours(24),
+            signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256)
+        );
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}
+```
+
+**JWT налаштування у `Program.cs`**
+```csharp
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer(opts =>
+    {
+        opts.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Secret"]!)),
+            ValidateIssuer = false,
+            ValidateAudience = false
+        };
+    });
+builder.Services.AddAuthorization();
+builder.Services.AddScoped<AuthService>();
+
+// після app.Build():
+app.UseAuthentication();
+app.UseAuthorization();
+```
+
+**Захист та перевірка власності у `PlacesController.cs`**
+```csharp
+[Authorize]
+[HttpPost]
+public async Task<IActionResult> Create([FromBody] Place place)
+{
+    var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    place.OwnerId = userId;
+    // ...
+}
+
+[Authorize]
+[HttpDelete("{id}")]
+public async Task<IActionResult> Delete(Guid id)
+{
+    var place = await service.GetByIdAsync(id);
+    if (place is null) return NotFound();
+
+    var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    if (place.OwnerId != userId) return Forbid();
+
+    await service.DeleteAsync(id);
+    return NoContent();
+}
+```
+
+**`appsettings.json`** (додати)
+```json
+"Jwt": {
+  "Secret": "your-super-secret-key-at-least-32-chars"
+}
+```
+
+### 4.4. API Endpoints
+- `POST /api/auth/register` — Body: `{ email, password }`
+- `POST /api/auth/login` — Response: `{ user: {...}, token: "eyJ..." }`
+
 ## 5. Очікуваний результат
-1. При виклику `POST /api/auth/register` користувач успішно створюється в БД, а його пароль зберігається у вигляді хешу.
-2. При неправильному логіні повертається помилка `401 Unauthorized`.
-3. При правильному логіні генерується JWT.
-4. Спроба створити місце (`POST /api/places`) без токена повертає помилку `401 Unauthorized`.
-5. При створенні місця чи відгуку з токеном, у полі `createdBy` (або `userId`) автоматично зберігається ID поточного користувача.
-6. Спроба видалити або оновити чуже місце повертає помилку `403 Forbidden`.
+1. `POST /api/auth/register` — пароль зберігається як bcrypt-хеш.
+2. Неправильний логін → `401 Unauthorized`.
+3. Правильний логін → JWT у відповіді.
+4. `POST /api/places` без токена → `401 Unauthorized`.
+5. При створенні місця — `OwnerId` заповнюється з токена.
+6. PUT/DELETE чужого місця → `403 Forbidden`.
+
+<!-- tabs:end -->
