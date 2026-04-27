@@ -1,7 +1,7 @@
 - **Вступ**
   - [Головна сторінка](README.md)
   - [Концепція курсу та проєкт](context.md)
-  - ⚙️ Стек: Node.js · FastAPI · .NET
+  - [⚙️ Вибір стеку (Node.js / FastAPI / .NET)](context.md#2-технологічний-стек)
 
 - **Лабораторні роботи**
   - [ЛР №1: Основи Node.js та Express](labs/lab1.md)
