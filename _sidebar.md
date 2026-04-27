@@ -1,15 +1,14 @@
 - **Вступ**
   - [Головна сторінка](README.md)
   - [Концепція курсу та проєкт](context.md)
-  - [⚙️ Вибір стеку (Node.js / FastAPI / .NET)](context.md#2-технологічний-стек)
 
 - **Лабораторні роботи**
-  - [ЛР №1: Основи Node.js та Express](labs/lab1.md)
+  - [ЛР №1: Основи backend + Places API (In-memory)](labs/lab1.md)
   - [ЛР №2: Інтеграція Бази Даних](labs/lab2.md)
-  - [ЛР №3: Робота з пов'язаними даними](labs/lab3.md)
+  - [ЛР №3: Робота з пов'язаними даними (Reviews)](labs/lab3.md)
   - [ЛР №4: Аутентифікація та JWT](labs/lab4.md)
-  - [ЛР №5: Просунуті запити та Пагінація/Ролі](labs/lab5.md)
-  - [ЛР №6: Production Readiness](labs/lab6.md)
+  - [ЛР №5: Просунуті запити (Фільтрація, Пагінація, Ролі)](labs/lab5.md)
+  - [ЛР №6: Production Readiness (Безпека, Логування, Деплой)](labs/lab6.md)
 
 - **Додатково**
   - [Контрольні питання](control_questions.md)
